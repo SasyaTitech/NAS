@@ -1,0 +1,22 @@
+# Core
+numpy~=2.4.0
+scipy~=1.17.0
+scikit-learn~=1.8.0
+PyYAML~=6.0.0
+tqdm~=4.67.0
+nltk~=3.9.0
+jsonlines~=4.0.0
+
+# Experiment runner / config
+hydra-core~=1.3.2
+omegaconf~=2.3.0
+
+# Editing methods
+higher~=0.2.1
+
+# LMs + datasets
+torch~=2.10.0
+transformers~=5.0.0
+datasets~=4.5.0
+sentencepiece~=0.2.1
+

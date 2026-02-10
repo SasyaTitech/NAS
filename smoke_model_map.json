@@ -1,0 +1,7 @@
+{
+  "gpt2-xl": "gpt2-xl",
+  "Llama3-8B": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "Qwen2p5-7B": "Qwen/Qwen2.5-7B-Instruct",
+  "Qwen/Qwen2.5-7B-Instruct": "Qwen/Qwen2.5-7B-Instruct",
+  "EleutherAI_gpt-j-6B": "EleutherAI/gpt-j-6b"
+}
