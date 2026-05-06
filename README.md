@@ -6,7 +6,7 @@
 
 This repository contains the code for:
 
-**Norm Anchors Make Model Edits Last: Stabilizing Sequential Locate-and-Edit**
+**Norm Anchors Make Model Edits Last**
 
 - arXiv: https://arxiv.org/abs/2602.02543
 - Method: Norm-Anchor Scaling (NAS), a plug-in stabilizer for sequential Locate-and-Edit (L&E) model editing.
