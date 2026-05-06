@@ -1,79 +1,104 @@
-# NAS: Public Code Release
+# Norm-Anchor Scaling (NAS)
 
-This repository contains the code used in the accompanying paper and is organized
-for public release and reproduction.
+<p align="center">
+  <img src="github.png" alt="Norm-Anchor Scaling overview" width="900">
+</p>
 
-## Paper
+This repository contains the code for:
 
-- Title: Toward Ultra-Long-Horizon Sequential Model Editing
+**Norm Anchors Make Model Edits Last: Stabilizing Sequential Locate-and-Edit**
+
 - arXiv: https://arxiv.org/abs/2602.02543
+- Method: Norm-Anchor Scaling (NAS), a plug-in stabilizer for sequential Locate-and-Edit (L&E) model editing.
 
-## Setup
+NAS rescales each solved value vector to an original-model reference norm before writing it into the model. The repository includes NAS, baseline editors, dataset wrappers, evaluation scripts, and lightweight tests used for the paper experiments.
 
-- Recommended Python: 3.10+
-- Install PyTorch following the official instructions for your platform.
-- Install remaining deps:
+## Repository Layout
+
+- `NAS/`: NAS implementation.
+- `baselines/`: baseline editing methods, including MEMIT, ROME, FT, MEND, NSE, AlphaEdit, ENCORE, MEMOIR, and LyapLock.
+- `experiments/evaluate.py`: main experiment runner.
+- `experiments/resume_run.py`: resume supported long sequential-editing runs.
+- `experiments/summarize.py`: summarizer for default `results/<METHOD>/run_###` outputs.
+- `experiments/smoke_test.py`: tiny end-to-end smoke-test driver.
+- `experiments/benchmark_*.py`: runtime and anchor-statistics ablations.
+- `dsets/`: dataset wrappers.
+- `glue_eval/`: general-capability evaluation utilities and bundled subsets.
+- `hparams/`: method/model hyperparameter files.
+- `tests/`: lightweight unit tests.
+
+## Installation
+
+Use Python 3.10 or newer. A CUDA GPU is recommended for model-editing runs.
+
+```bash
+conda create -n nas python=3.10 -y
+conda activate nas
+```
+
+Install PyTorch for your CUDA/runtime environment following the official PyTorch instructions, then install the remaining dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Quick sanity check
+For gated Hugging Face models such as Llama-3, authenticate before running:
 
 ```bash
-python -m unittest discover -s tests -p 'test_*.py'
+huggingface-cli login
 ```
 
-## Running experiments (`experiments/evaluate.py`)
+## Paths
 
-All main experiments are run via the CLI entry in `experiments/evaluate.py`:
+Default paths are configured in `globals.yml` and are relative to this repository:
+
+- `results/`: experiment outputs.
+- `data/`: downloaded or manually placed datasets.
+- `data/stats/`: covariance/statistics cache.
+- `data/kvs/`: key/value cache.
+- `hparams/`: hyperparameter files.
+
+You can override them with environment variables:
 
 ```bash
-python -m experiments.evaluate \
-  --alg_name <ALG> \
-  --model_name <HF_ID_OR_LOCAL_PATH> \
-  --hparams_fname <FILE.json> \
-  --ds_name <DATASET>
+export NAS_RESULTS_DIR=/path/to/results
+export NAS_DATA_DIR=/path/to/data
+export NAS_STATS_DIR=/path/to/stats
+export NAS_KV_DIR=/path/to/kvs
+export NAS_HPARAMS_DIR=/path/to/hparams
 ```
 
-### Key arguments
+`NAS_REMOTE_ROOT_URL` controls the remote mirror used for CounterFact, ZsRE, and statistics downloads. The default mirror is `https://memit.baulab.info`.
 
-- `--alg_name`: editing algorithm. Options include `NAS`, `AlphaEdit`, `ENCORE`, `MEMOIR`, `ROME`, `MEMIT*`, `FT`, `MEND`, `NSE`, `LyapLock`.
-- `--model_name`: HuggingFace model id or a local model path.
-- `--hparams_fname`: hyperparameters JSON.
-  - For `MEMIT*` variants (`MEMIT`, `MEMIT_seq`, `MEMIT_rect`, `MEMIT_prune`), hparams are loaded from `hparams/MEMIT/`.
-  - For other algs, hparams are loaded from `hparams/<ALG>/`.
-- `--ds_name`: dataset (`mcf`, `cf`, `zsre`, `mquake`, `wikibigedit`).
+## Data and Models
 
-### Common options
+Model weights are not included. The provided configs cover:
 
-- `--dataset_size_limit N`: run only the first `N` cases (useful for debugging).
-- `--num_edits K`: edit `K` cases simultaneously per step (not supported for `--ds_name cf`).
-- `--skip_generation_tests`: disable slow generation-based tests (runs only probability / token-accuracy tests).
-- `--generation_test_interval N`: run generation tests every `N` edited records (`-1` disables). Note: generation tests are forced off for `MEMOIR` and `wikibigedit`.
-- `--checkpoint_eval_interval N`: run a full checkpoint evaluation every `N` edit *batches* (each batch edits `--num_edits` records). `0` means “only final checkpoint”.
-- `--save_edited_weights_interval N`: when `--checkpoint_eval_interval>0`, save rewrite-module weights every `N` checkpoint evals.
-- `--downstream_eval_steps N`: run GLUE-style downstream evaluation every `N` edit *batches* (writes to `run_dir/glue_eval/`).
-- `--use_cache`: load/write cached K/V files under `KV_DIR` (see “Paths / portability” below).
-- `--hparam key=value`: override a top-level hyperparameter field from the loaded hparams JSON (repeatable). Example:
-  - `--hparam mom2_n_samples=50000 --hparam layers=[13,14,15]`
-- `--run_dir_override PATH`: write all artifacts to `PATH` instead of `results/<ALG>/run_###`.
+- `gpt2-xl`
+- `EleutherAI/gpt-j-6b`
+- `meta-llama/Meta-Llama-3-8B-Instruct`
+- `Qwen/Qwen2.5-7B-Instruct`
 
-### Resuming runs
+Dataset handling:
 
-`experiments/evaluate.py` writes a resumable state for supported algorithms under `run_dir/resume/`.
-To actually resume and add more cases, use:
+- `mcf` / `cf`: MultiCounterFact / CounterFact, downloaded from the MEMIT public data mirror.
+- `zsre`: downloaded from the MEMIT public data mirror.
+- `wikibigedit`: loaded through Hugging Face `datasets` from `lukasthede/WikiBigEdit`.
+- `mquake`: place `MQuAKE-CF-3k-v2.json` in `data/` before running.
+- GLUE-style general-capability subsets are bundled under `glue_eval/dataset/`.
+- MEMOIR auxiliary features are bundled under `data/memoir/`.
+
+For local model mirrors, pass the local path with `--model_name` while keeping the matching hyperparameter file.
+
+## Quick Checks
+
+Run unit tests:
 
 ```bash
-python -m experiments.resume_run --run_dir <RUN_DIR> --add_cases <N>
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
-(`--continue_from_run` reuses a run directory/hparams, but does not automatically load the resume state.)
-
-## Run a minimal evaluation (example)
-
-This will download required HuggingFace datasets/models on first run. Some methods
-also compute/cache statistics and can be slow; a GPU is recommended.
+Run one small NAS edit on GPT-2 XL and MultiCounterFact:
 
 ```bash
 python -m experiments.evaluate \
@@ -83,81 +108,186 @@ python -m experiments.evaluate \
   --ds_name mcf \
   --dataset_size_limit 1 \
   --skip_generation_tests \
-  --run_dir_override results/public_demo
+  --generation_test_interval -1 \
+  --run_dir_override results/quick_nas_gpt2xl_mcf
 ```
 
-## Results: where to look / how to read
+The final checkpoint summary is written under:
 
-### Output directory layout
+```text
+results/quick_nas_gpt2xl_mcf/checkpoint_evals/after_1/summary.json
+```
 
-By default, each run writes to `results/<ALG>/run_###/` (or `--run_dir_override`).
-Important files/subfolders:
+## Running Experiments
 
-- `params.json`: the exact hparams used for the run.
-- `checkpoint_evals/after_<N>/results.jsonl`: per-case JSONL results for the checkpoint after `N` edited records.
-- `checkpoint_evals/after_<N>/summary.json`: aggregated checkpoint summary (means/stds over edited cases).
-- `resume/state.json`: resume metadata + pointers to saved tensors (for supported algs).
-- `edited_weights/after_<N>/rewrite_module_weights.pt`: optional saved rewrite-module weights (if enabled).
-- `glue_eval/*.json`: optional downstream (GLUE-style) eval outputs (if enabled).
-
-### `results.jsonl` format (per edited case)
-
-Each line is a JSON object with (at least) the following keys:
-
-- `case_id`: dataset case id.
-- `edit_order_idx`: order in which the case was edited (0-based).
-- `requested_rewrite`: the edit request (prompt/subject/target).
-- `post`: post-edit evaluation metrics (dataset-dependent; see below).
-
-### `summary.json` metrics (checkpoint-level)
-
-`summary.json` contains a `metrics` dict with aggregated values. Common entries:
-
-- `post_rewrite_acc`, `post_paraphrase_acc`, `post_neighborhood_acc`: mean token-level accuracies (reported as percentages in `summary.json`).
-- For CounterFact-style datasets, you may also see:
-  - `post_rewrite_success`, `post_paraphrase_success`: fraction of prompts where the edited target is assigned higher probability than the original target.
-  - `post_neighborhood_success`: fraction of locality prompts where the original target remains more likely than the edited target.
-- For WikiBigEdit, you may see:
-  - `post_ES`, `post_GS`, `post_LS`: teacher-forcing token-level accuracies for edit/generalization/locality.
-
-To quickly inspect a checkpoint summary:
+The main entry point is:
 
 ```bash
-python -c "import json; p='results/<ALG>/run_000/checkpoint_evals/after_1/summary.json'; print(json.load(open(p))['metrics'])"
+python -m experiments.evaluate \
+  --alg_name <METHOD> \
+  --model_name <HF_MODEL_OR_LOCAL_PATH> \
+  --hparams_fname <HPARAMS_JSON> \
+  --ds_name <DATASET>
 ```
 
-## Paths / portability
+Supported methods:
 
-You can override common directories via environment variables:
+```text
+NAS, MEMIT, MEMIT_seq, MEMIT_rect, MEMIT_prune, ROME, FT, MEND,
+NSE, AlphaEdit, ENCORE, MEMOIR, LyapLock
+```
 
-- `NAS_RESULTS_DIR`, `NAS_DATA_DIR`, `NAS_STATS_DIR`, `NAS_HPARAMS_DIR`, `NAS_KV_DIR`
-- `NAS_REMOTE_ROOT_URL`
+Supported datasets:
 
-## Compute / hardware notes
+```text
+mcf, cf, zsre, mquake, wikibigedit
+```
 
-- All paper experiments were run on NVIDIA H100 GPUs.
-- For Locate-and-Edit (L&E) style methods, our experiments require at least **48 GB** of GPU memory (VRAM). If you have less, start with smaller models (e.g. `gpt2-xl`) and small `--dataset_size_limit`.
+Common options:
 
-## Notes
+- `--dataset_size_limit N`: use only the first `N` records.
+- `--num_edits N`: edit `N` records per batch.
+- `--checkpoint_eval_interval N`: evaluate after every `N` edit batches.
+- `--skip_generation_tests`: skip slow generation-based tests.
+- `--generation_test_interval -1`: disable generation tests.
+- `--use_cache`: reuse cached key/value statistics when available.
+- `--run_dir_override PATH`: write outputs to a fixed directory.
+- `--hparam key=value`: override a top-level hyperparameter; repeat as needed.
 
-- This public release excludes large local artifacts such as experiment outputs and
-  temporary logs.
+## Example Commands
+
+NAS on GPT-J with MultiCounterFact:
+
+```bash
+python -m experiments.evaluate \
+  --alg_name NAS \
+  --model_name EleutherAI/gpt-j-6b \
+  --hparams_fname EleutherAI_gpt-j-6B.json \
+  --ds_name mcf \
+  --dataset_size_limit 1000 \
+  --num_edits 1 \
+  --checkpoint_eval_interval 100 \
+  --skip_generation_tests \
+  --generation_test_interval -1 \
+  --run_dir_override results/nas_gptj_mcf_1k
+```
+
+MEMIT baseline with the same model and dataset:
+
+```bash
+python -m experiments.evaluate \
+  --alg_name MEMIT \
+  --model_name EleutherAI/gpt-j-6b \
+  --hparams_fname EleutherAI_gpt-j-6B.json \
+  --ds_name mcf \
+  --dataset_size_limit 1000 \
+  --num_edits 1 \
+  --checkpoint_eval_interval 100 \
+  --skip_generation_tests \
+  --generation_test_interval -1 \
+  --run_dir_override results/memit_gptj_mcf_1k
+```
+
+NAS on WikiBigEdit:
+
+```bash
+python -m experiments.evaluate \
+  --alg_name NAS \
+  --model_name EleutherAI/gpt-j-6b \
+  --hparams_fname EleutherAI_gpt-j-6B.json \
+  --ds_name wikibigedit \
+  --dataset_size_limit 1000 \
+  --num_edits 1 \
+  --checkpoint_eval_interval 100 \
+  --wikibigedit_checkpoint_eval_sample_ratio 0.1 \
+  --skip_generation_tests \
+  --generation_test_interval -1 \
+  --run_dir_override results/nas_gptj_wikibigedit_1k
+```
+
+For full long-horizon runs, increase or remove `--dataset_size_limit`. Paper-scale runs require substantially more GPU time because they repeatedly edit large language models and evaluate checkpoints.
+
+## Outputs
+
+By default, runs are written to `results/<METHOD>/run_###/`. If `--run_dir_override` is set, outputs are written to that path instead.
+
+Important files:
+
+- `params.json`: exact hyperparameters used by the run.
+- `hparam_overrides.json`: hyperparameter overrides, if `--hparam` was used.
+- `checkpoint_evals/after_<N>/results.jsonl`: per-case checkpoint results after `N` edited records.
+- `checkpoint_evals/after_<N>/summary.json`: aggregated checkpoint metrics.
+- `resume/state.json`: resume metadata for supported algorithms.
+- `edited_weights/after_<N>/rewrite_module_weights.pt`: optional saved rewrite-module weights.
+- `glue_eval/*.json`: optional downstream/general-capability evaluation outputs.
+
+To inspect a checkpoint summary:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+p = Path("results/nas_gptj_mcf_1k/checkpoint_evals/after_1000/summary.json")
+print(json.dumps(json.load(open(p))["metrics"], indent=2))
+PY
+```
+
+To summarize runs stored in the default layout, for example `results/NAS/run_###`:
+
+```bash
+python -m experiments.summarize --dir_name NAS
+```
+
+## Resuming Runs
+
+Supported algorithms write resumable state under `run_dir/resume/`. To continue an existing run:
+
+```bash
+python -m experiments.resume_run \
+  --run_dir results/NAS/run_000 \
+  --add_cases 1000
+```
+
+`--continue_from_run` reuses an existing run directory and hyperparameters in the main evaluator. Use `experiments.resume_run` when you want to load the saved resume state and add more cases.
+
+## Smoke-Test Driver
+
+`experiments/smoke_test.py` runs tiny `dataset_size_limit=1` cases across method and hyperparameter combinations. It is intended for functional checks, not for reproducing paper tables.
+
+```bash
+python -m experiments.smoke_test --out_root smoke_reports/basic
+```
+
+If a model should resolve to a local path, edit `smoke_model_map.json` or pass a custom map:
+
+```bash
+python -m experiments.smoke_test \
+  --model_map smoke_model_map.json \
+  --out_root smoke_reports/local_models
+```
+
+## Compute Notes
+
+All paper experiments were run on NVIDIA H100 GPUs. L&E-style methods on GPT-J, Llama-3, and Qwen2.5 generally require high-memory GPUs; if memory is limited, start with `gpt2-xl`, `--dataset_size_limit 1`, and generation tests disabled.
+
+## Licenses and Terms
+
+This code uses externally hosted models, datasets, and baseline implementations. Users should follow the licenses, model cards, dataset cards, and terms of use provided by the original authors or hosting platforms.
+
+- Model weights are not redistributed.
+- Gated models such as Llama-3 require the corresponding access approval.
+- CounterFact and ZsRE are downloaded from the MEMIT public data mirror.
+- WikiBigEdit is loaded from Hugging Face `datasets`.
+- Baseline editor code and hyperparameters follow the original authors' releases when available, as cited in the paper.
 
 ## Citation
 
-If you use this repository, please cite:
+If you use this repository, please cite the arXiv preprint:
 
-```bibtex
-@misc{liu2026ultralonghorizonsequentialmodelediting,
-      title={Toward Ultra-Long-Horizon Sequential Model Editing},
-      author={Mingda Liu and Zhenghan Zhu and Ze'an Miao and Katsuki Fujisawa},
-      year={2026},
-      eprint={2602.02543},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2602.02543},
-}
-```
+https://arxiv.org/abs/2602.02543
+
+The arXiv metadata may take some time to reflect the latest replacement. Once it is updated, please use the BibTeX exported from the arXiv page.
 
 ## License
 

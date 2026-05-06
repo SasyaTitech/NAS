@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-title: Toward Ultra-Long-Horizon Sequential Model Editing
-message: If you use this code, please cite the associated arXiv preprint.
+title: Norm-Anchor Scaling
+message: If you use this code, please cite the associated arXiv preprint at https://arxiv.org/abs/2602.02543.
 type: software
 license: MIT
 authors:
@@ -12,19 +12,3 @@ authors:
     given-names: "Ze'an"
   - family-names: Fujisawa
     given-names: Katsuki
-preferred-citation:
-  type: article
-  title: Toward Ultra-Long-Horizon Sequential Model Editing
-  authors:
-    - family-names: Liu
-      given-names: Mingda
-    - family-names: Zhu
-      given-names: Zhenghan
-    - family-names: Miao
-      given-names: "Ze'an"
-    - family-names: Fujisawa
-      given-names: Katsuki
-  year: 2026
-  archive: arXiv
-  archive_location: "2602.02543"
-  url: https://arxiv.org/abs/2602.02543
